@@ -1,0 +1,105 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Karyadhara Voting</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.2/dist/web3.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .candidate {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Karyadhara Voting</h1>
+
+    <div id="candidates"></div>
+
+    <h3>Vote for your preferred candidate:</h3>
+    <input type="number" id="candidateIndex" placeholder="Enter candidate index" />
+    <button onclick="vote()">Vote</button>
+
+    <h3>Status</h3>
+    <p id="status">Connecting to the blockchain...</p>
+
+    <script>
+        let contract;
+        let account;
+        const contractAddress = "YOUR_CONTRACT_ADDRESS_HERE"; // Replace with your contract address
+        const contractABI = [
+            {
+                "constant": true,
+                "inputs": [],
+                "name": "getCandidates",
+                "outputs": [
+                    {
+                        "components": [
+                            {"name": "name", "type": "string"},
+                            {"name": "voteCount", "type": "uint256"}
+                        ],
+                        "type": "tuple[]"
+                    }
+                ],
+                "payable": false,
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "constant": false,
+                "inputs": [{"name": "candidateIndex", "type": "uint256"}],
+                "name": "vote",
+                "outputs": [],
+                "payable": false,
+                "stateMutability": "nonpayable",
+                "type": "function"
+            }
+        ];
+
+        async function connectBlockchain() {
+            if (window.ethereum) {
+                const web3 = new Web3(window.ethereum);
+                await window.ethereum.request({ method: "eth_requestAccounts" });
+                const accounts = await web3.eth.getAccounts();
+                account = accounts[0];
+                document.getElementById("status").innerText = `Connected as ${account}`;
+
+                contract = new web3.eth.Contract(contractABI, contractAddress);
+                loadCandidates();
+            } else {
+                document.getElementById("status").innerText = "Please install MetaMask!";
+            }
+        }
+
+        async function loadCandidates() {
+            const candidates = await contract.methods.getCandidates().call();
+            const candidatesDiv = document.getElementById("candidates");
+            candidatesDiv.innerHTML = "";
+            candidates.forEach((candidate, index) => {
+                const candidateDiv = document.createElement("div");
+                candidateDiv.className = "candidate";
+                candidateDiv.innerText = `${index}: ${candidate.name} (${candidate.voteCount} votes)`;
+                candidatesDiv.appendChild(candidateDiv);
+            });
+        }
+
+        async function vote() {
+            const candidateIndex = document.getElementById("candidateIndex").value;
+            try {
+                await contract.methods.vote(candidateIndex).send({ from: account });
+                document.getElementById("status").innerText = "Vote cast successfully!";
+                loadCandidates();
+            } catch (error) {
+                document.getElementById("status").innerText = `Error: ${error.message}`;
+            }
+        }
+
+        connectBlockchain();
+    </script>
+</body>
+</html>
